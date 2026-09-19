@@ -1,0 +1,19 @@
+{
+  "name": "boat-tracker-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AIS ingest + vessel store + REST/WebSocket API for a globe-based boat tracker",
+  "scripts": {
+    "start": "node --env-file=.env server.js",
+    "dev": "node --watch --env-file=.env server.js",
+    "mock": "node mock-ais.js"
+  },
+  "engines": {
+    "node": ">=20.6"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}
