@@ -46,8 +46,36 @@
     window.addEventListener('resize', resize);
     resize();
 
-    statusEl.textContent = 'globe loaded ok';
-    setTimeout(() => statusEl.style.display = 'none', 2000);
+    statusEl.textContent = 'globe loaded, fetching vessels…';
+
+    // Step 1: just fetch the current snapshot once and plot it. No live
+    // updates yet, no click handling yet -- this is only to confirm data
+    // makes it from the backend onto the globe at all.
+    fetch('/api/vessels')
+      .then(res => {
+        if (!res.ok) throw new Error(`/api/vessels returned ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        const ships = data.vessels || [];
+
+        globe
+          .pointsData(ships)
+          .pointLat(d => d.lat)
+          .pointLng(d => d.lon)
+          .pointColor(() => '#35c7c2')
+          .pointRadius(0.35)
+          .pointAltitude(0.005)
+          .pointLabel(d => `${d.name || 'Unnamed vessel'} (${d.mmsi})`);
+
+        statusEl.textContent = `${ships.length} vessels loaded`;
+        statusEl.style.color = '#9fb2c0';
+      })
+      .catch(err => {
+        statusEl.textContent = 'failed to load vessels: ' + err.message;
+        statusEl.style.color = '#e35b5b';
+        console.error(err);
+      });
   } catch (err) {
     statusEl.textContent = 'globe failed to load: ' + err.message;
     statusEl.style.color = '#e35b5b';
