@@ -7,7 +7,10 @@
 <script src="https://unpkg.com/globe.gl"></script>
 <style>
   html, body { margin: 0; height: 100%; background: #060b10; overflow: hidden; }
-  #globe-container { position: fixed; inset: 0; }
+  #globe-container { position: fixed; top: 0; left: 0; bottom: 0; right: 300px; }
+  @media (max-width: 700px) {
+    #globe-container { right: 0; bottom: 45vh; }
+  }
   #status {
     position: fixed;
     top: 12px;
@@ -19,12 +22,76 @@
     padding: 6px 10px;
     border-radius: 3px;
   }
+
+  #panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 300px;
+    max-width: 85vw;
+    background: #0e1620;
+    border-left: 1px solid #1c2a36;
+    color: #dce6ed;
+    font-family: monospace;
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  #panelClose {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 26px;
+    height: 26px;
+    background: transparent;
+    border: 1px solid #1c2a36;
+    color: #9fb2c0;
+    border-radius: 3px;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  #panelClose:hover { color: #dce6ed; border-color: #35c7c2; }
+  #panelClose:disabled { opacity: 0.3; cursor: default; }
+  #panelClose:disabled:hover { color: #9fb2c0; border-color: #1c2a36; }
+
+  #panel .empty {
+    color: #6f8494;
+    font-size: 12px;
+    margin-top: 40px;
+    line-height: 1.6;
+  }
+
+  #panel h2 {
+    font-size: 16px;
+    margin: 0 0 4px;
+    padding-right: 32px;
+  }
+  #panel .sub {
+    font-size: 11px;
+    color: #6f8494;
+    margin-bottom: 18px;
+  }
+  #panel .row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid #1c2a36;
+  }
+  #panel .row .label { color: #6f8494; }
+  #panel .row .value { color: #dce6ed; text-align: right; }
 </style>
 </head>
 <body>
 
 <div id="status">loading globe&hellip;</div>
 <div id="globe-container"></div>
+
+<div id="panel">
+  <button id="panelClose">&times;</button>
+  <div id="panelBody"></div>
+</div>
 
 <script>
   const statusEl = document.getElementById('status');
@@ -39,9 +106,14 @@
     globe.controls().autoRotate = true;
     globe.controls().autoRotateSpeed = 0.3;
 
+    const globeContainer = document.getElementById('globe-container');
     function resize() {
-      globe.width(window.innerWidth);
-      globe.height(window.innerHeight);
+      // Use the container's own box, not the full window -- the container
+      // is already sized by CSS to leave room for the permanent sidebar
+      // (and to stack above it instead, on narrow screens).
+      const rect = globeContainer.getBoundingClientRect();
+      globe.width(rect.width);
+      globe.height(rect.height);
     }
     window.addEventListener('resize', resize);
     resize();
@@ -52,7 +124,8 @@
       .pointColor(() => '#35c7c2')
       .pointRadius(0.35)
       .pointAltitude(0.005)
-      .pointLabel(d => `${d.name || 'Unnamed vessel'} (${d.mmsi})`);
+      .pointLabel(d => `${d.name || 'Unnamed vessel'} (${d.mmsi})`)
+      .onPointClick(d => openPanel(d));
 
     statusEl.textContent = 'globe loaded, connecting to live feed…';
 
@@ -102,6 +175,65 @@
       };
     }
     connect();
+
+    // Step 3: click a ship to open a detail sidebar.
+    const panelBody = document.getElementById('panelBody');
+    let selectedMmsi = null;
+
+    function row(label, value) {
+      return `<div class="row"><span class="label">${label}</span><span class="value">${value}</span></div>`;
+    }
+
+    function agoText(ts) {
+      if (!ts) return 'unknown';
+      const s = Math.round((Date.now() - ts) / 1000);
+      if (s < 60) return `${s}s ago`;
+      if (s < 3600) return `${Math.round(s / 60)}m ago`;
+      return `${Math.round(s / 3600)}h ago`;
+    }
+
+    const panelCloseBtn = document.getElementById('panelClose');
+
+    function showEmptyState() {
+      panelBody.innerHTML = `<div class="empty">Click a vessel on the globe to see its details here.</div>`;
+      panelCloseBtn.disabled = true;
+    }
+
+    function openPanel(d) {
+      selectedMmsi = d.mmsi;
+      panelCloseBtn.disabled = false;
+      panelBody.innerHTML = `
+        <h2>${d.name || 'Unnamed vessel'}</h2>
+        <div class="sub">${d.category || 'unknown type'}</div>
+        ${row('MMSI', d.mmsi)}
+        ${row('IMO', d.imo || '&mdash;')}
+        ${row('Speed', d.sog != null ? d.sog.toFixed(1) + ' kn' : '&mdash;')}
+        ${row('Course', d.cog != null ? d.cog.toFixed(0) + '&deg;' : '&mdash;')}
+        ${row('Destination', d.destination || '&mdash;')}
+        ${row('ETA', d.eta || '&mdash;')}
+        ${row('Position', d.lat.toFixed(3) + ', ' + d.lon.toFixed(3))}
+        ${row('Updated', agoText(d.updatedAt))}
+      `;
+    }
+
+    function closePanel() {
+      selectedMmsi = null;
+      showEmptyState();
+    }
+
+    showEmptyState();
+    panelCloseBtn.addEventListener('click', closePanel);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
+
+    // If the ship currently shown in the panel gets a live update, refresh
+    // the panel's contents too, instead of leaving it showing stale data.
+    const originalScheduleRender = scheduleRender;
+    scheduleRender = function patchedScheduleRender() {
+      originalScheduleRender();
+      if (selectedMmsi && vesselsByMmsi.has(selectedMmsi)) {
+        requestAnimationFrame(() => openPanel(vesselsByMmsi.get(selectedMmsi)));
+      }
+    };
   } catch (err) {
     statusEl.textContent = 'globe failed to load: ' + err.message;
     statusEl.style.color = '#e35b5b';
