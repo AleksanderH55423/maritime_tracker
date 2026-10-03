@@ -243,7 +243,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.static('public')); // drop your globe frontend in ./public
+app.use(express.static('public'));
+app.use('/media', express.static('media'));
 
 const hasPosition = (v) => v.lat !== undefined && v.lon !== undefined;
 

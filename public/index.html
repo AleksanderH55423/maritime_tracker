@@ -4,241 +4,766 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Maritime Tracker</title>
+
 <script src="https://unpkg.com/globe.gl"></script>
+
 <style>
-  html, body { margin: 0; height: 100%; background: #060b10; overflow: hidden; }
-  #globe-container { position: fixed; top: 0; left: 0; bottom: 0; right: 300px; }
-  @media (max-width: 700px) {
-    #globe-container { right: 0; bottom: 45vh; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #060b10;
+    overflow: hidden;
   }
+
+  #globe-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 300px;
+  }
+
+  @media (max-width: 700px) {
+    #globe-container {
+      right: 0;
+      bottom: 45vh;
+    }
+  }
+
+  /* ================================================================
+     STATUS
+     ================================================================ */
+
   #status {
     position: fixed;
     top: 12px;
     left: 12px;
+
     color: #9fb2c0;
     font-family: monospace;
     font-size: 12px;
-    background: rgba(14,22,32,0.8);
+
+    background: rgba(14, 22, 32, 0.8);
+
     padding: 6px 10px;
     border-radius: 3px;
+
+    z-index: 20;
   }
+
+
+  /* ================================================================
+     SIDEBAR
+     ================================================================ */
 
   #panel {
     position: fixed;
     top: 0;
     right: 0;
     bottom: 0;
+
     width: 300px;
     max-width: 85vw;
+
+    box-sizing: border-box;
+
     background: #0e1620;
     border-left: 1px solid #1c2a36;
+
     color: #dce6ed;
     font-family: monospace;
+
     padding: 20px;
+
     overflow-y: auto;
+
+    display: flex;
+    flex-direction: column;
   }
+
+
+  /* ================================================================
+     CLOSE BUTTON
+     ================================================================ */
 
   #panelClose {
     position: absolute;
     top: 14px;
     right: 14px;
+
     width: 26px;
     height: 26px;
+
     background: transparent;
     border: 1px solid #1c2a36;
-    color: #9fb2c0;
-    border-radius: 3px;
-    font-size: 15px;
-    cursor: pointer;
-  }
-  #panelClose:hover { color: #dce6ed; border-color: #35c7c2; }
-  #panelClose:disabled { opacity: 0.3; cursor: default; }
-  #panelClose:disabled:hover { color: #9fb2c0; border-color: #1c2a36; }
 
-  #panel .empty {
-    color: #6f8494;
-    font-size: 12px;
-    margin-top: 40px;
-    line-height: 1.6;
+    color: #9fb2c0;
+
+    border-radius: 3px;
+
+    font-size: 15px;
+
+    cursor: pointer;
+
+    z-index: 5;
+  }
+
+  #panelClose:hover {
+    color: #dce6ed;
+    border-color: #35c7c2;
+  }
+
+  #panelClose:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  #panelClose:disabled:hover {
+    color: #9fb2c0;
+    border-color: #1c2a36;
+  }
+
+
+  /* ================================================================
+     SHIP INFORMATION
+     ================================================================ */
+
+  #panelBody {
+    flex: 0 0 auto;
   }
 
   #panel h2 {
     font-size: 16px;
+
     margin: 0 0 4px;
+
     padding-right: 32px;
   }
+
   #panel .sub {
     font-size: 11px;
+
     color: #6f8494;
+
     margin-bottom: 18px;
   }
+
   #panel .row {
     display: flex;
     justify-content: space-between;
+
     font-size: 12px;
+
     padding: 7px 0;
+
     border-bottom: 1px solid #1c2a36;
   }
-  #panel .row .label { color: #6f8494; }
-  #panel .row .value { color: #dce6ed; text-align: right; }
+
+  #panel .row .label {
+    color: #6f8494;
+  }
+
+  #panel .row .value {
+    color: #dce6ed;
+
+    text-align: right;
+  }
+
+
+  /* ================================================================
+     LOGO
+     ================================================================ */
+
+  #panelLogo {
+    /*
+     * Pushes the logo all the way to the bottom
+     * of the sidebar.
+     */
+    margin-top: auto;
+
+    display: flex;
+
+    justify-content: center;
+    align-items: center;
+
+    height: 100%;
+
+    transition:
+      height 0.6s ease,
+      margin 0.6s ease;
+  }
+
+  #panelLogo img {
+    width: 220px;
+    height: 220px;
+
+    object-fit: contain;
+
+    border-radius: 50%;
+
+    transition:
+      width 0.6s ease,
+      height 0.6s ease,
+      opacity 0.6s ease;
+  }
+
+
+  /*
+   * After a ship is selected
+   */
+
+  #panelLogo {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.6s ease;
+  }
+
+  #panelLogo img {
+    width: 220px;
+    height: 220px;
+    object-fit: contain;
+  }
+
+  #panelLogo.moved {
+    flex: 0 0 220px;
+    margin-top: auto;
+  }
+
+
+  /* ================================================================
+     EMPTY STATE
+     ================================================================ */
+
+  #panel .empty {
+    color: #6f8494;
+
+    font-size: 12px;
+
+    margin-top: 40px;
+
+    line-height: 1.6;
+  }
 </style>
 </head>
+
 <body>
 
-<div id="status">loading globe&hellip;</div>
-<div id="globe-container"></div>
-
-<div id="panel">
-  <button id="panelClose">&times;</button>
-  <div id="panelBody"></div>
+<div id="status">
+  loading globe&hellip;
 </div>
 
+<div id="globe-container"></div>
+
+
+<!-- ================================================================
+     SIDEBAR
+     ================================================================ -->
+
+<div id="panel">
+
+  <button id="panelClose">&times;</button>
+
+
+  <!-- Ship information -->
+  <div id="panelBody"></div>
+
+
+  <!-- Logo -->
+  <div id="panelLogo">
+
+    <img
+      src="/media/Hovland_Maritime_Logo.jpg"
+      alt="Maritime Tracker"
+    >
+
+  </div>
+
+</div>
+
+
 <script>
-  const statusEl = document.getElementById('status');
+
+  /* ================================================================
+     DOM ELEMENTS
+     ================================================================ */
+
+  const statusEl =
+    document.getElementById('status');
+
+  const panelBody =
+    document.getElementById('panelBody');
+
+  const panelCloseBtn =
+    document.getElementById('panelClose');
+
+  const panelLogo =
+    document.getElementById('panelLogo');
+
+
+  /* ================================================================
+     GLOBE
+     ================================================================ */
 
   try {
-    const globe = Globe()(document.getElementById('globe-container'))
+
+    const globe = Globe()(
+      document.getElementById('globe-container')
+    )
+
       .backgroundColor('#060b10')
-      .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-dark.jpg')
-      .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
-      .pointOfView({ lat: 51.5, lng: 2, altitude: 2 }, 0);
+
+      .globeImageUrl(
+        'https://unpkg.com/three-globe/example/img/earth-dark.jpg'
+      )
+
+      .bumpImageUrl(
+        'https://unpkg.com/three-globe/example/img/earth-topology.png'
+      )
+
+      .pointOfView(
+        {
+          lat: 51.5,
+          lng: 2,
+          altitude: 2
+        },
+        0
+      );
+
 
     globe.controls().autoRotate = true;
     globe.controls().autoRotateSpeed = 0.3;
 
-    const globeContainer = document.getElementById('globe-container');
+
+    /* ================================================================
+       RESIZE
+       ================================================================ */
+
+    const globeContainer =
+      document.getElementById('globe-container');
+
+
     function resize() {
-      // Use the container's own box, not the full window -- the container
-      // is already sized by CSS to leave room for the permanent sidebar
-      // (and to stack above it instead, on narrow screens).
-      const rect = globeContainer.getBoundingClientRect();
+
+      const rect =
+        globeContainer.getBoundingClientRect();
+
       globe.width(rect.width);
       globe.height(rect.height);
     }
-    window.addEventListener('resize', resize);
+
+
+    window.addEventListener(
+      'resize',
+      resize
+    );
+
     resize();
 
+
+    /* ================================================================
+       VESSEL POINTS
+       ================================================================ */
+
     globe
+
       .pointLat(d => d.lat)
+
       .pointLng(d => d.lon)
-      .pointColor(() => '#35c7c2')
+
+      .pointColor(
+        () => '#35c7c2'
+      )
+
       .pointRadius(0.35)
+
       .pointAltitude(0.005)
-      .pointLabel(d => `${d.name || 'Unnamed vessel'} (${d.mmsi})`)
-      .onPointClick(d => openPanel(d));
 
-    statusEl.textContent = 'globe loaded, connecting to live feed…';
+      .pointLabel(
+        d =>
+          `${d.name || 'Unnamed vessel'} (${d.mmsi})`
+      )
 
-    // Step 2: instead of one static fetch, keep a running Map of every
-    // vessel (keyed by MMSI) and update it from the /live WebSocket.
-    // The server already batches its pushes once a second, so we just
-    // re-render the globe's points whenever a batch arrives.
-    const vesselsByMmsi = new Map();
+      .onPointClick(
+        d => openPanel(d)
+      );
+
+
+    statusEl.textContent =
+      'globe loaded, connecting to live feed…';
+
+
+    /* ================================================================
+       VESSEL STORE
+       ================================================================ */
+
+    const vesselsByMmsi =
+      new Map();
+
     let renderScheduled = false;
 
+
     function scheduleRender() {
-      // Collapse multiple updates arriving close together into one redraw.
+
       if (renderScheduled) return;
+
       renderScheduled = true;
+
       requestAnimationFrame(() => {
-        globe.pointsData(Array.from(vesselsByMmsi.values()));
-        statusEl.textContent = `${vesselsByMmsi.size} vessels tracked`;
+
+        globe.pointsData(
+          Array.from(
+            vesselsByMmsi.values()
+          )
+        );
+
+        statusEl.textContent =
+          `${vesselsByMmsi.size} vessels tracked`;
+
         renderScheduled = false;
       });
     }
 
+
+    /* ================================================================
+       WEBSOCKET
+       ================================================================ */
+
     function connect() {
-      const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/live';
-      const ws = new WebSocket(wsUrl);
+
+      const wsUrl =
+        (location.protocol === 'https:'
+          ? 'wss://'
+          : 'ws://'
+        ) +
+        location.host +
+        '/live';
+
+
+      const ws =
+        new WebSocket(wsUrl);
+
 
       ws.onopen = () => {
-        statusEl.style.color = '#9fb2c0';
+
+        statusEl.style.color =
+          '#9fb2c0';
       };
 
+
       ws.onmessage = (ev) => {
-        const msg = JSON.parse(ev.data);
-        if (msg.type === 'snapshot' || msg.type === 'update') {
-          for (const v of msg.vessels) vesselsByMmsi.set(v.mmsi, v);
+
+        const msg =
+          JSON.parse(ev.data);
+
+
+        if (
+          msg.type === 'snapshot' ||
+          msg.type === 'update'
+        ) {
+
+          for (
+            const v of msg.vessels
+          ) {
+
+            vesselsByMmsi.set(
+              v.mmsi,
+              v
+            );
+          }
+
           scheduleRender();
-        } else if (msg.type === 'remove') {
-          for (const mmsi of msg.mmsis) vesselsByMmsi.delete(mmsi);
+        }
+
+
+        else if (
+          msg.type === 'remove'
+        ) {
+
+          for (
+            const mmsi of msg.mmsis
+          ) {
+
+            vesselsByMmsi.delete(
+              mmsi
+            );
+          }
+
           scheduleRender();
         }
       };
 
-      ws.onerror = () => ws.close();
+
+      ws.onerror = () => {
+
+        ws.close();
+      };
+
 
       ws.onclose = () => {
-        statusEl.textContent = `${vesselsByMmsi.size} vessels tracked (reconnecting…)`;
-        statusEl.style.color = '#e2a23b';
-        setTimeout(connect, 2000);
+
+        statusEl.textContent =
+          `${vesselsByMmsi.size} vessels tracked (reconnecting…)`;
+
+        statusEl.style.color =
+          '#e2a23b';
+
+        setTimeout(
+          connect,
+          2000
+        );
       };
     }
+
+
     connect();
 
-    // Step 3: click a ship to open a detail sidebar.
-    const panelBody = document.getElementById('panelBody');
+
+    /* ================================================================
+       SHIP PANEL
+       ================================================================ */
+
     let selectedMmsi = null;
 
-    function row(label, value) {
-      return `<div class="row"><span class="label">${label}</span><span class="value">${value}</span></div>`;
-    }
 
-    function agoText(ts) {
-      if (!ts) return 'unknown';
-      const s = Math.round((Date.now() - ts) / 1000);
-      if (s < 60) return `${s}s ago`;
-      if (s < 3600) return `${Math.round(s / 60)}m ago`;
-      return `${Math.round(s / 3600)}h ago`;
-    }
+    function row(
+      label,
+      value
+    ) {
 
-    const panelCloseBtn = document.getElementById('panelClose');
-
-    function showEmptyState() {
-      panelBody.innerHTML = `<div class="empty">Click a vessel on the globe to see its details here.</div>`;
-      panelCloseBtn.disabled = true;
-    }
-
-    function openPanel(d) {
-      selectedMmsi = d.mmsi;
-      panelCloseBtn.disabled = false;
-      panelBody.innerHTML = `
-        <h2>${d.name || 'Unnamed vessel'}</h2>
-        <div class="sub">${d.category || 'unknown type'}</div>
-        ${row('MMSI', d.mmsi)}
-        ${row('IMO', d.imo || '&mdash;')}
-        ${row('Speed', d.sog != null ? d.sog.toFixed(1) + ' kn' : '&mdash;')}
-        ${row('Course', d.cog != null ? d.cog.toFixed(0) + '&deg;' : '&mdash;')}
-        ${row('Destination', d.destination || '&mdash;')}
-        ${row('ETA', d.eta || '&mdash;')}
-        ${row('Position', d.lat.toFixed(3) + ', ' + d.lon.toFixed(3))}
-        ${row('Updated', agoText(d.updatedAt))}
+      return `
+        <div class="row">
+          <span class="label">${label}</span>
+          <span class="value">${value}</span>
+        </div>
       `;
     }
 
+
+    function agoText(ts) {
+
+      if (!ts)
+        return 'unknown';
+
+
+      const s =
+        Math.round(
+          (Date.now() - ts) /
+          1000
+        );
+
+
+      if (s < 60)
+        return `${s}s ago`;
+
+
+      if (s < 3600)
+        return `${Math.round(s / 60)}m ago`;
+
+
+      return `${Math.round(s / 3600)}h ago`;
+    }
+
+
+    /* ================================================================
+       EMPTY PANEL
+       ================================================================ */
+
+    function showEmptyState() {
+
+      panelBody.innerHTML = '';
+
+      panelCloseBtn.disabled = true;
+
+      panelLogo.classList.remove(
+        'moved'
+      );
+    }
+
+
+    /* ================================================================
+       OPEN PANEL
+       ================================================================ */
+
+    function openPanel(d) {
+
+      selectedMmsi = d.mmsi;
+
+
+      /*
+       * Ship information stays at the top.
+       * Logo moves to the bottom and shrinks.
+       */
+
+      panelLogo.classList.add(
+        'moved'
+      );
+
+
+      panelCloseBtn.disabled = false;
+
+
+      panelBody.innerHTML = `
+
+        <h2>
+          ${d.name || 'Unnamed vessel'}
+        </h2>
+
+        <div class="sub">
+          ${d.category || 'unknown type'}
+        </div>
+
+        ${row(
+          'MMSI',
+          d.mmsi
+        )}
+
+        ${row(
+          'IMO',
+          d.imo || '&mdash;'
+        )}
+
+        ${row(
+          'Speed',
+          d.sog != null
+            ? d.sog.toFixed(1) + ' kn'
+            : '&mdash;'
+        )}
+
+        ${row(
+          'Course',
+          d.cog != null
+            ? d.cog.toFixed(0) + '&deg;'
+            : '&mdash;'
+        )}
+
+        ${row(
+          'Destination',
+          d.destination || '&mdash;'
+        )}
+
+        ${row(
+          'ETA',
+          d.eta || '&mdash;'
+        )}
+
+        ${row(
+          'Position',
+          d.lat.toFixed(3) +
+          ', ' +
+          d.lon.toFixed(3)
+        )}
+
+        ${row(
+          'Updated',
+          agoText(d.updatedAt)
+        )}
+
+      `;
+    }
+
+
+    /* ================================================================
+       CLOSE PANEL
+       ================================================================ */
+
     function closePanel() {
+
       selectedMmsi = null;
+
+      panelLogo.classList.remove(
+        'moved'
+      );
+
       showEmptyState();
     }
 
-    showEmptyState();
-    panelCloseBtn.addEventListener('click', closePanel);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
 
-    // If the ship currently shown in the panel gets a live update, refresh
-    // the panel's contents too, instead of leaving it showing stale data.
-    const originalScheduleRender = scheduleRender;
-    scheduleRender = function patchedScheduleRender() {
-      originalScheduleRender();
-      if (selectedMmsi && vesselsByMmsi.has(selectedMmsi)) {
-        requestAnimationFrame(() => openPanel(vesselsByMmsi.get(selectedMmsi)));
+    /* ================================================================
+       INITIAL STATE
+       ================================================================ */
+
+    showEmptyState();
+
+
+    /* ================================================================
+       CLOSE BUTTON
+       ================================================================ */
+
+    panelCloseBtn.addEventListener(
+      'click',
+      closePanel
+    );
+
+
+    /* ================================================================
+       ESCAPE
+       ================================================================ */
+
+    document.addEventListener(
+      'keydown',
+      (e) => {
+
+        if (e.key === 'Escape') {
+
+          closePanel();
+        }
       }
-    };
-  } catch (err) {
-    statusEl.textContent = 'globe failed to load: ' + err.message;
-    statusEl.style.color = '#e35b5b';
+    );
+
+
+    /* ================================================================
+       LIVE PANEL UPDATES
+       ================================================================ */
+
+    const originalScheduleRender =
+      scheduleRender;
+
+
+    scheduleRender =
+      function patchedScheduleRender() {
+
+        originalScheduleRender();
+
+
+        if (
+          selectedMmsi &&
+          vesselsByMmsi.has(
+            selectedMmsi
+          )
+        ) {
+
+          requestAnimationFrame(
+            () => {
+
+              openPanel(
+                vesselsByMmsi.get(
+                  selectedMmsi
+                )
+              );
+
+            }
+          );
+        }
+      };
+
+
+  }
+
+  catch (err) {
+
+    statusEl.textContent =
+      'globe failed to load: ' +
+      err.message;
+
+    statusEl.style.color =
+      '#e35b5b';
+
     console.error(err);
   }
+
 </script>
+
 </body>
 </html>
