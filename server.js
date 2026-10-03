@@ -1,6 +1,7 @@
 import http from 'node:http';
 import express from 'express';
 import WebSocket, { WebSocketServer } from 'ws';
+import { getFlagFromMmsi } from './data/mmsi-countries.js';
 
 /* ------------------------------------------------------------------ *
  * 1. Config
@@ -36,12 +37,22 @@ const dirty = new Set(); // mmsis changed since the last flush to browsers
  */
 function upsert(mmsi, patch) {
   const v = vessels.get(mmsi) ?? { mmsi };
+
   for (const [key, value] of Object.entries(patch)) {
     if (value !== undefined) v[key] = value;
   }
+
+  const flagInfo = getFlagFromMmsi(mmsi);
+
+  if (flagInfo) {
+    v.country = flagInfo.country;
+    v.flag = flagInfo.flag;
+  }
+
   v.updatedAt = Date.now();
   vessels.set(mmsi, v);
   dirty.add(mmsi);
+
   return v;
 }
 

@@ -620,6 +620,13 @@
         )}
 
         ${row(
+          'Registered Nationality',
+          d.flag
+            ? `${d.flag} ${d.country}`
+            : '&mdash;'
+        )}
+
+        ${row(
           'IMO',
           d.imo || '&mdash;'
         )}
