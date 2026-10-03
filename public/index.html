@@ -46,36 +46,62 @@
     window.addEventListener('resize', resize);
     resize();
 
-    statusEl.textContent = 'globe loaded, fetching vessels…';
+    globe
+      .pointLat(d => d.lat)
+      .pointLng(d => d.lon)
+      .pointColor(() => '#35c7c2')
+      .pointRadius(0.35)
+      .pointAltitude(0.005)
+      .pointLabel(d => `${d.name || 'Unnamed vessel'} (${d.mmsi})`);
 
-    // Step 1: just fetch the current snapshot once and plot it. No live
-    // updates yet, no click handling yet -- this is only to confirm data
-    // makes it from the backend onto the globe at all.
-    fetch('/api/vessels')
-      .then(res => {
-        if (!res.ok) throw new Error(`/api/vessels returned ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        const ships = data.vessels || [];
+    statusEl.textContent = 'globe loaded, connecting to live feed…';
 
-        globe
-          .pointsData(ships)
-          .pointLat(d => d.lat)
-          .pointLng(d => d.lon)
-          .pointColor(() => '#35c7c2')
-          .pointRadius(0.35)
-          .pointAltitude(0.005)
-          .pointLabel(d => `${d.name || 'Unnamed vessel'} (${d.mmsi})`);
+    // Step 2: instead of one static fetch, keep a running Map of every
+    // vessel (keyed by MMSI) and update it from the /live WebSocket.
+    // The server already batches its pushes once a second, so we just
+    // re-render the globe's points whenever a batch arrives.
+    const vesselsByMmsi = new Map();
+    let renderScheduled = false;
 
-        statusEl.textContent = `${ships.length} vessels loaded`;
-        statusEl.style.color = '#9fb2c0';
-      })
-      .catch(err => {
-        statusEl.textContent = 'failed to load vessels: ' + err.message;
-        statusEl.style.color = '#e35b5b';
-        console.error(err);
+    function scheduleRender() {
+      // Collapse multiple updates arriving close together into one redraw.
+      if (renderScheduled) return;
+      renderScheduled = true;
+      requestAnimationFrame(() => {
+        globe.pointsData(Array.from(vesselsByMmsi.values()));
+        statusEl.textContent = `${vesselsByMmsi.size} vessels tracked`;
+        renderScheduled = false;
       });
+    }
+
+    function connect() {
+      const wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/live';
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        statusEl.style.color = '#9fb2c0';
+      };
+
+      ws.onmessage = (ev) => {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === 'snapshot' || msg.type === 'update') {
+          for (const v of msg.vessels) vesselsByMmsi.set(v.mmsi, v);
+          scheduleRender();
+        } else if (msg.type === 'remove') {
+          for (const mmsi of msg.mmsis) vesselsByMmsi.delete(mmsi);
+          scheduleRender();
+        }
+      };
+
+      ws.onerror = () => ws.close();
+
+      ws.onclose = () => {
+        statusEl.textContent = `${vesselsByMmsi.size} vessels tracked (reconnecting…)`;
+        statusEl.style.color = '#e2a23b';
+        setTimeout(connect, 2000);
+      };
+    }
+    connect();
   } catch (err) {
     statusEl.textContent = 'globe failed to load: ' + err.message;
     statusEl.style.color = '#e35b5b';
