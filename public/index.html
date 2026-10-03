@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Maritime Tracker</title>
+<script src="https://unpkg.com/globe.gl"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #060b10; overflow: hidden; }
+  #globe-container { position: fixed; inset: 0; }
+  #status {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    color: #9fb2c0;
+    font-family: monospace;
+    font-size: 12px;
+    background: rgba(14,22,32,0.8);
+    padding: 6px 10px;
+    border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+
+<div id="status">loading globe&hellip;</div>
+<div id="globe-container"></div>
+
+<script>
+  const statusEl = document.getElementById('status');
+
+  try {
+    const globe = Globe()(document.getElementById('globe-container'))
+      .backgroundColor('#060b10')
+      .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-dark.jpg')
+      .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+      .pointOfView({ lat: 51.5, lng: 2, altitude: 2 }, 0);
+
+    globe.controls().autoRotate = true;
+    globe.controls().autoRotateSpeed = 0.3;
+
+    function resize() {
+      globe.width(window.innerWidth);
+      globe.height(window.innerHeight);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    statusEl.textContent = 'globe loaded ok';
+    setTimeout(() => statusEl.style.display = 'none', 2000);
+  } catch (err) {
+    statusEl.textContent = 'globe failed to load: ' + err.message;
+    statusEl.style.color = '#e35b5b';
+    console.error(err);
+  }
+</script>
+</body>
+</html>
